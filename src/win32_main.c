@@ -5,6 +5,8 @@
 #include "renderer.h"
 #include "vec.h"
 
+#include <stdio.h>
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -91,7 +93,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     rendererArena.memory = VirtualAlloc(0, rendererArena.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
     Renderer *renderer = RendererInit(&rendererArena, &win32, clientWidth, clientHeight);
-    
+
     u64 perfCountFreq;
 
     {
@@ -126,19 +128,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         RendererStartFrame(renderer);
 
         RendererClear(renderer, COLOR_MAGENTA);
-
-        Vec2 rectPos = { 64.0f, 360.0f };
-        Vec2 rectSize = { 100.0f, 100.0f };
-        Color rectColor = { 0.1f, 0.1f, 0.1f, 1.0f };
-
-        for(int i = 0; i < 10; ++i)
-        {
-            RendererFillRect(renderer, rectPos, rectSize, rectColor);
-            rectPos.x += 128.0f;
-            rectColor.r += 0.1f;
-            rectColor.g += 0.1f;
-            rectColor.b += 0.1f;
-        }
 
         RendererEndFrame(renderer);
 
