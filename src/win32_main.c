@@ -1,9 +1,37 @@
 #ifdef _WIN32
 
+#include "arena.h"
 #include "defs.h"
+#include "renderer.h"
+#include "vec.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+
+typedef struct
+{
+    HWND window;
+    HDC deviceContext;
+    BITMAPINFO bi;
+} Win32RendererData;
+
+void PlatformSoftwareRendererPresent(void *platform, u32 *pixels, int width, int height)
+{
+    Win32RendererData *win32 = platform;
+    StretchDIBits(win32->deviceContext, 0, 0, width, height, 0, 0, width, height, pixels, &win32->bi, DIB_RGB_COLORS, SRCCOPY);
+}
+
+void PlatformSoftwareRendererInit(void *platform, int width, int height)
+{
+    Win32RendererData *win32 = platform;
+
+    win32->bi.bmiHeader.biSize = sizeof(win32->bi.bmiHeader);
+    win32->bi.bmiHeader.biWidth = width;
+    win32->bi.bmiHeader.biHeight = -height;
+    win32->bi.bmiHeader.biPlanes = 1;
+    win32->bi.bmiHeader.biCompression = BI_RGB;
+    win32->bi.bmiHeader.biBitCount = 32;
+}
 
 LRESULT CALLBACK Win32MainWindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -52,10 +80,17 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     AdjustWindowRectEx(&windowRect, windowStyle, 0, 0);
 
-    HWND window = CreateWindowExW(0, windowClass.lpszClassName, L"Retro Games", windowStyle, CW_USEDEFAULT, CW_USEDEFAULT,
+    Win32RendererData win32 = { 0 };
+    win32.window = CreateWindowExW(0, windowClass.lpszClassName, L"Retro Games", windowStyle, CW_USEDEFAULT, CW_USEDEFAULT,
         windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, 0, 0, instance, 0);
     
-    HDC deviceContext = GetDC(window);
+    win32.deviceContext = GetDC(win32.window);
+
+    Arena rendererArena = { 0 };
+    rendererArena.size = Megabytes(4);
+    rendererArena.memory = VirtualAlloc(0, rendererArena.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+    Renderer *renderer = RendererInit(&rendererArena, &win32, clientWidth, clientHeight);
     
     u64 perfCountFreq;
 
@@ -88,11 +123,31 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
             DispatchMessageW(&message);
         }
 
+        RendererStartFrame(renderer);
+
+        RendererClear(renderer, COLOR_MAGENTA);
+
+        Vec2 rectPos = { 64.0f, 360.0f };
+        Vec2 rectSize = { 100.0f, 100.0f };
+        Color rectColor = { 0.1f, 0.1f, 0.1f, 1.0f };
+
+        for(int i = 0; i < 10; ++i)
+        {
+            RendererFillRect(renderer, rectPos, rectSize, rectColor);
+            rectPos.x += 128.0f;
+            rectColor.r += 0.1f;
+            rectColor.g += 0.1f;
+            rectColor.b += 0.1f;
+        }
+
+        RendererEndFrame(renderer);
+
         LARGE_INTEGER endCounter;
         QueryPerformanceCounter(&endCounter);
 
         u64 counterElapsed = endCounter.QuadPart - startCounter.QuadPart;
         deltaTime = (f32)counterElapsed / perfCountFreq;
+        startCounter = endCounter;
     }
 
     return 0;
