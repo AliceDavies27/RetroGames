@@ -1,7 +1,11 @@
 #ifdef _WIN32
 
+#include "games/snake.h"
+
 #include "arena.h"
 #include "defs.h"
+#include "event.h"
+#include "random.h"
 #include "renderer.h"
 #include "vec.h"
 
@@ -62,6 +66,12 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int cmdShow)
 {
+    {
+        LARGE_INTEGER seedCounter;
+        QueryPerformanceCounter(&seedCounter);
+        RandSeed(seedCounter.LowPart);
+    }
+
     int clientWidth = 1280;
     int clientHeight = 720;
 
@@ -94,6 +104,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     Renderer *renderer = RendererInit(&rendererArena, &win32, clientWidth, clientHeight);
 
+    Arena gameArena = { 0 };
+    gameArena.size = Megabytes(4);
+    gameArena.memory = VirtualAlloc(0, gameArena.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+    GameState *gameState = SnakeInit(&gameArena);
+
     u64 perfCountFreq;
 
     {
@@ -106,6 +122,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     QueryPerformanceCounter(&startCounter);
 
     f32 deltaTime = 0.0f;
+    f32 highestDt = 0.0f;
+    u64 frames = 0;
 
     b32 running = true;
 
@@ -121,13 +139,49 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
                 break;
             }
 
-            TranslateMessage(&message);
-            DispatchMessageW(&message);
+            Event event = { 0 };
+
+            switch(message.message)
+            {
+                case WM_KEYUP:
+                case WM_KEYDOWN:
+                case WM_SYSKEYUP:
+                case WM_SYSKEYDOWN:
+                {
+                    DWORD vkCode = (DWORD)message.wParam;
+
+                    b32 wasDown = ((message.lParam & KF_REPEAT) != 0);
+                    b32 isDown = ((message.lParam & KF_UP) == 0);
+                    
+                    //We only care about pressing and releasing the key,
+                    //this check ignores key repeat messages.
+                    if(wasDown != isDown)
+                    {
+                        event.type = EVENT_KEYBOARD;
+                        event.keyboard.isDown = isDown;
+
+                        if(vkCode == VK_UP) event.keyboard.key = KEY_UP;
+                        else if(vkCode == VK_DOWN) event.keyboard.key = KEY_DOWN;
+                        else if(vkCode == VK_LEFT) event.keyboard.key = KEY_LEFT;
+                        else if(vkCode == VK_RIGHT) event.keyboard.key = KEY_RIGHT;
+                    }
+                } break;
+
+                default:
+                {
+                    TranslateMessage(&message);
+                    DispatchMessageW(&message);
+                } break;
+            }
+
+            if(event.type != EVENT_NONE) SnakeHandleEvent(gameState, event);
         }
 
         RendererStartFrame(renderer);
 
         RendererClear(renderer, COLOR_MAGENTA);
+
+        SnakeUpdate(gameState, renderer, deltaTime);
 
         RendererEndFrame(renderer);
 
@@ -136,6 +190,16 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
         u64 counterElapsed = endCounter.QuadPart - startCounter.QuadPart;
         deltaTime = (f32)counterElapsed / perfCountFreq;
+        if(frames < 2000)
+        {
+            ++frames;
+        }
+        else if(deltaTime > highestDt)
+        {
+            highestDt = deltaTime;
+            printf("%.03f\n", highestDt);
+            fflush(stdout);
+        }
         startCounter = endCounter;
     }
 
