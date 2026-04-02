@@ -1,5 +1,9 @@
 #pragma once
 
+typedef u32 TexHandle;
+
+#define INVALID_HANDLE 0xFFFFFFFF;
+
 typedef struct
 {
     f32 r, g, b, a;

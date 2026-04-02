@@ -8,6 +8,8 @@ typedef struct Renderer Renderer;
 
 Renderer *RendererInit(Arena *arena, void *platform, int width, int height);
 
+TexHandle RendererCreateTexture(Renderer *renderer, const char *fileName);
+
 void RendererStartFrame(Renderer *renderer);
 
 void RendererSetSize(Renderer *renderer, Vec2 size);

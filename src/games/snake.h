@@ -6,6 +6,6 @@
 
 typedef struct GameState GameState;
 
-GameState *SnakeInit(Arena *arena);
+GameState *SnakeInit(Arena *arena, Renderer *renderer);
 void SnakeHandleEvent(GameState *gameState, Event event);
 void SnakeUpdate(GameState *gameState, Renderer *renderer, f32 deltaTime);

@@ -1,7 +1,16 @@
 #include "software_renderer.h"
 
 #include "defs.h"
+#include "intrinsics.h"
 #include "vec.h"
+
+#define MAX_TEXTURES 128
+
+typedef struct
+{
+    int width, height;
+    u32 *pixels;
+} SWTexture;
 
 typedef struct
 {
@@ -9,6 +18,9 @@ typedef struct
     void *platform;
     u32 *pixels;
     int width, height;
+
+    u32 activeTextures;
+    SWTexture textures[MAX_TEXTURES];
 } SoftwareRenderer;
 
 void PlatformSoftwareRendererPresent(void *platform, u32 *pixels, int width, int height);
@@ -24,6 +36,27 @@ static u32 ColorToU32(Color color)
     u32 pixColor = (a << 24) | (r << 16) | (g << 8) | b;
 
     return pixColor;
+}
+
+static TexHandle CreateTexture(void *backend, int width, int height, u32 *pixels)
+{
+    SoftwareRenderer *sw = backend;
+
+    TexHandle texHandle = INVALID_HANDLE;
+
+    if(sw->activeTextures < MAX_TEXTURES)
+    {
+        texHandle = sw->activeTextures++;
+
+        SWTexture *texture = &sw->textures[texHandle];
+        
+        texture->width = width;
+        texture->height = height;
+        texture->pixels = pixels;
+
+    }
+
+    return texHandle;
 }
 
 static void Clear(void *backend, Color color)
@@ -75,6 +108,8 @@ void *SoftwareRendererInit(Arena *arena, RendererAPI *api, void *platform, int w
     sw->pixels = ArenaPushArrayZero(arena, u32, width * height);
     sw->width = width;
     sw->height = height;
+
+    api->CreateTexture = CreateTexture;
 
     api->Clear = Clear;
     api->FillRect = FillRect;

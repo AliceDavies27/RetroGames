@@ -1,5 +1,8 @@
 #include "renderer.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "renderer_api.h"
 #include "software_renderer.h"
 #include "vec.h"
@@ -13,7 +16,11 @@ typedef struct
 
 struct Renderer
 {
-    Arena *arena;
+    Arena arena;
+    Arena backendArena;
+    Arena assetArena;
+    Arena tempArena;
+
     void *backend;
 
     Vec2 clientSize;
@@ -24,7 +31,6 @@ struct Renderer
         f32 scale;
         Vec2 offset;
     } transform;
-
 
     CommandBuffer cmdBuf;
     RendererAPI api;
@@ -56,18 +62,40 @@ typedef struct
 
 Renderer *RendererInit(Arena *arena, void *platform, int width, int height)
 {
-    //TODO: Separate backend arena for runtime backend switching.
-
     Renderer *renderer = ArenaPushStructZero(arena, Renderer);
 
-    renderer->arena = arena;
-    renderer->backend = SoftwareRendererInit(arena, &renderer->api, platform, width, height);
+    renderer->arena = *arena;
+    renderer->arena.size = arena->size / 4;
+
+    renderer->backendArena = renderer->arena;
+    renderer->backendArena.memory = renderer->arena.memory + renderer->arena.size;
+
+    renderer->assetArena = renderer->backendArena;
+    renderer->assetArena.memory = renderer->backendArena.memory + renderer->backendArena.size;
+
+    renderer->tempArena = renderer->assetArena;
+    renderer->tempArena.memory = renderer->assetArena.memory + renderer->assetArena.size;
+
+    renderer->backend = SoftwareRendererInit(&renderer->backendArena, &renderer->api, platform, width, height);
     renderer->clientSize = (Vec2){ (f32)width, (f32)height };
     RendererSetSize(renderer, renderer->clientSize);
     renderer->cmdBuf.size = Kilobytes(64);
     renderer->cmdBuf.memory = ArenaPushArrayZero(arena, u8, renderer->cmdBuf.size);
 
     return renderer;
+}
+
+TexHandle RendererCreateTexture(Renderer *renderer, const char *fileName)
+{
+    int width, height, channels;
+    u32 *tempPixels = (u32 *)stbi_load(fileName, &width, &height, &channels, 0);
+
+    u32 *pixels = ArenaPushArray(&renderer->assetArena, u32, width * height);
+    memcpy(pixels, tempPixels, width * height * sizeof(u32));
+    
+    stbi_image_free(tempPixels);
+
+    return renderer->api.CreateTexture(renderer->backend, width, height, pixels);
 }
 
 void RendererStartFrame(Renderer *renderer)

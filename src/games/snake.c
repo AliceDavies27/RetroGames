@@ -11,6 +11,17 @@ typedef enum
     DIR_RIGHT
 } Direction;
 
+typedef enum
+{
+    SEGMENT_HORZ,
+    SEGMENT_VERT,
+    SEGMENT_LEFT_UP,
+    SEGMENT_RIGHT_UP,
+    SEGMENT_LEFT_DOWN,
+    SEGMENT_RIGHT_DOWN,
+    NUM_SEGMENT_TYPES
+} SegmentType;
+
 struct GameState
 {
     Arena *arena;
@@ -32,6 +43,8 @@ struct GameState
 
     f32 accum;
     f32 updateFrequency;
+
+    TexHandle snakeTextures[NUM_SEGMENT_TYPES];
 
     bool gameOver;
 };
@@ -68,7 +81,7 @@ static Vec2i GenerateFruit(bool *gridOccupancy, int gridCount)
     }
 }
 
-GameState *SnakeInit(Arena *arena)
+GameState *SnakeInit(Arena *arena, Renderer *renderer)
 {
     GameState *gameState = ArenaPushStructZero(arena, GameState);
 
@@ -102,6 +115,13 @@ GameState *SnakeInit(Arena *arena)
     gameState->fruitPos = GenerateFruit(gameState->gridOccupancy, gameState->gridCount);
 
     gameState->updateFrequency = 0.2f;
+
+    gameState->snakeTextures[SEGMENT_HORZ] = RendererCreateTexture(renderer, "snake_tex_horz.png");
+    gameState->snakeTextures[SEGMENT_VERT] = RendererCreateTexture(renderer, "snake_tex_vert.png");
+    gameState->snakeTextures[SEGMENT_LEFT_UP] = RendererCreateTexture(renderer, "snake_tex_left_up.png");
+    gameState->snakeTextures[SEGMENT_LEFT_DOWN] = RendererCreateTexture(renderer, "snake_tex_left_down.png");
+    gameState->snakeTextures[SEGMENT_RIGHT_UP] = RendererCreateTexture(renderer, "snake_tex_right_up.png");
+    gameState->snakeTextures[SEGMENT_RIGHT_DOWN] = RendererCreateTexture(renderer, "snake_tex_right_down.png");
 
     return gameState;
 }

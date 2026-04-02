@@ -108,7 +108,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     gameArena.size = Megabytes(4);
     gameArena.memory = VirtualAlloc(0, gameArena.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
-    GameState *gameState = SnakeInit(&gameArena);
+    GameState *gameState = SnakeInit(&gameArena, renderer);
 
     u64 perfCountFreq;
 
