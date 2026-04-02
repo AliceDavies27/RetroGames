@@ -13,7 +13,7 @@ typedef enum
 typedef struct
 {
     KeyCode key;
-    b32 isDown;
+    bool isDown;
 } KeyboardEvent;
 
 typedef enum

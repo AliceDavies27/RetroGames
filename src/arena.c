@@ -2,7 +2,7 @@
 
 #include <string.h> //For memset.
 
-void *ArenaAlloc(Arena *arena, size_t size, b32 zero)
+void *ArenaAlloc(Arena *arena, size_t size, bool zero)
 {
     void *result = 0;
 

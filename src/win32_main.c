@@ -125,7 +125,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     f32 highestDt = 0.0f;
     u64 frames = 0;
 
-    b32 running = true;
+    bool running = true;
 
     while(running)
     {
@@ -150,8 +150,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
                 {
                     DWORD vkCode = (DWORD)message.wParam;
 
-                    b32 wasDown = ((message.lParam & KF_REPEAT) != 0);
-                    b32 isDown = ((message.lParam & KF_UP) == 0);
+                    bool wasDown = ((message.lParam & KF_REPEAT) != 0);
+                    bool isDown = ((message.lParam & KF_UP) == 0);
                     
                     //We only care about pressing and releasing the key,
                     //this check ignores key repeat messages.

@@ -9,7 +9,7 @@ typedef struct
     u8 *memory;
 } Arena;
 
-void *ArenaAlloc(Arena *arena, size_t size, b32 zero);
+void *ArenaAlloc(Arena *arena, size_t size, bool zero);
 
 #define ArenaPushStruct(arena, type) ArenaAlloc(arena, sizeof(type), false)
 #define ArenaPushArray(arena, type, count) ArenaAlloc(arena, (count) * sizeof(type), false)

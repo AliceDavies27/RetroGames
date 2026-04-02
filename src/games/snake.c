@@ -16,14 +16,15 @@ struct GameState
     Arena *arena;
 
     Vec2 drawRegion;
-
-    int gridCount;
     Vec2 gridCellSize;
 
-    Vec2i *snakeSegments;
-    b32 *gridOccupancy;
+    int gridCount;
     int maxSegments;
     int headIndex, tailIndex;
+
+    Vec2i *snakeSegments;
+    bool *gridOccupancy;
+
     Direction lastMove;
     Direction nextMove;
 
@@ -31,6 +32,8 @@ struct GameState
 
     f32 accum;
     f32 updateFrequency;
+
+    bool gameOver;
 };
 
 static void DrawGridObj(Renderer *renderer, Vec2 gridCellSize, Vec2i pos, Color color)
@@ -43,6 +46,26 @@ static void DrawGridObj(Renderer *renderer, Vec2 gridCellSize, Vec2i pos, Color 
     Vec2 drawSize = V2SubScalar(gridCellSize, 2);
 
     RendererFillRect(renderer, drawPos, drawSize, color);
+}
+
+static Vec2i GenerateFruit(bool *gridOccupancy, int gridCount)
+{
+    bool occupied = false;
+
+    //TODO: Generate the position in a better way.
+    //This will get slow when the snake is very long.
+    for(;;)
+    {
+        Vec2i pos = {
+            RandInt(0, gridCount),
+            RandInt(0, gridCount)
+        };
+
+        if(!gridOccupancy[pos.y * gridCount + pos.x])
+        {
+            return pos;
+        }
+    }
 }
 
 GameState *SnakeInit(Arena *arena)
@@ -58,7 +81,7 @@ GameState *SnakeInit(Arena *arena)
 
     gameState->maxSegments = gameState->gridCount * gameState->gridCount;
     gameState->snakeSegments = ArenaPushArrayZero(arena, Vec2i, gameState->maxSegments);
-    gameState->gridOccupancy = ArenaPushArrayZero(arena, b32, gameState->maxSegments);
+    gameState->gridOccupancy = ArenaPushArrayZero(arena, bool, gameState->maxSegments);
 
     Vec2i pos = { gameState->gridCount / 2, gameState->gridCount / 2 };
     gameState->snakeSegments[0] = pos;
@@ -76,21 +99,7 @@ GameState *SnakeInit(Arena *arena)
     gameState->lastMove = DIR_RIGHT;
     gameState->nextMove = DIR_RIGHT;
 
-    b32 occupied = false;
-
-    for(;;)
-    {
-        pos = (Vec2i) {
-            RandInt(0, gameState->gridCount),
-            RandInt(0, gameState->gridCount)
-        };
-
-        if(!gameState->gridOccupancy[pos.y * gameState->gridCount + pos.x])
-        {
-            gameState->fruitPos = pos;
-            break;
-        }
-    }
+    gameState->fruitPos = GenerateFruit(gameState->gridOccupancy, gameState->gridCount);
 
     gameState->updateFrequency = 0.2f;
 
@@ -134,18 +143,43 @@ void SnakeUpdate(GameState *gameState, Renderer *renderer, f32 deltaTime)
     {
         gameState->accum -= gameState->updateFrequency;
 
-        Vec2i newHeadPos = gameState->snakeSegments[gameState->headIndex % gameState->maxSegments];
+        if(!gameState->gameOver)
+        {
+            Vec2i newHeadPos = gameState->snakeSegments[gameState->headIndex % gameState->maxSegments];
 
-        if(gameState->nextMove == DIR_UP) newHeadPos.y--;
-        else if(gameState->nextMove == DIR_DOWN) newHeadPos.y++;
-        else if(gameState->nextMove == DIR_LEFT) newHeadPos.x--;
-        else if(gameState->nextMove == DIR_RIGHT) newHeadPos.x++;
+            if(gameState->nextMove == DIR_UP) newHeadPos.y--;
+            else if(gameState->nextMove == DIR_DOWN) newHeadPos.y++;
+            else if(gameState->nextMove == DIR_LEFT) newHeadPos.x--;
+            else if(gameState->nextMove == DIR_RIGHT) newHeadPos.x++;
 
-        gameState->headIndex++;
-        gameState->snakeSegments[gameState->headIndex % gameState->maxSegments] = newHeadPos;
-        gameState->tailIndex++;
+            bool collidedWithEdge = (newHeadPos.x < 0 || newHeadPos.y < 0 ||
+                newHeadPos.x >= gameState->gridCount || newHeadPos.y >= gameState->gridCount);
+            bool collidedWithSelf = (gameState->gridOccupancy[newHeadPos.y * gameState->gridCount + newHeadPos.x] == true);
 
-        gameState->lastMove = gameState->nextMove;
+            if(collidedWithEdge || collidedWithSelf)
+            {
+                gameState->gameOver = true;
+            }
+            else
+            {
+                if(V2iEqual(newHeadPos, gameState->fruitPos))
+                {
+                    gameState->fruitPos = GenerateFruit(gameState->gridOccupancy, gameState->gridCount);
+                }
+                else
+                {
+                    Vec2i oldTailPos = gameState->snakeSegments[gameState->tailIndex % gameState->maxSegments];
+                    gameState->gridOccupancy[oldTailPos.y * gameState->gridCount + oldTailPos.x] = false;
+                    gameState->tailIndex++;
+                }
+
+                gameState->headIndex++;
+                gameState->snakeSegments[gameState->headIndex % gameState->maxSegments] = newHeadPos;
+                gameState->gridOccupancy[newHeadPos.y * gameState->gridCount + newHeadPos.x] = true;
+
+                gameState->lastMove = gameState->nextMove;
+            }
+        }
     }
 
     RendererSetSize(renderer, gameState->drawRegion);
