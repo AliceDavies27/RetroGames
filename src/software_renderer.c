@@ -75,10 +75,10 @@ static void FillRect(void *backend, Vec2 pos, Vec2 size, Color color)
 {
     SoftwareRenderer *sw = backend;
     
-    i32 minX = Max((i32)(pos.x - size.x * 0.5f), 0);
-    i32 minY = Max((i32)(pos.y - size.y * 0.5f), 0);
-    i32 maxX = Min((i32)(pos.x + size.x * 0.5f), sw->width);
-    i32 maxY = Min((i32)(pos.y + size.y * 0.5f), sw->height);
+    int minX = Max((int)(pos.x - size.x * 0.5f), 0);
+    int minY = Max((int)(pos.y - size.y * 0.5f), 0);
+    int maxX = Min((int)(pos.x + size.x * 0.5f), sw->width);
+    int maxY = Min((int)(pos.y + size.y * 0.5f), sw->height);
 
     u32 pixColor = ColorToU32(color);
 
@@ -88,6 +88,41 @@ static void FillRect(void *backend, Vec2 pos, Vec2 size, Color color)
         {
             sw->pixels[y * sw->width + x] = pixColor;
         }
+    }
+}
+
+static void DrawTexture(void *backend, TexHandle texHandle, Vec2 pos)
+{
+    //TODO: Add scaling. Currently just does a basic pixel copy.
+
+    SoftwareRenderer *sw = backend;
+    SWTexture *texture = &sw->textures[texHandle];
+
+    int destY = (int)(pos.y - texture->height * 0.5f);
+
+    for(int y = 0; y < texture->height; ++y)
+    {
+        if(destY >= 0 && destY < sw->height)
+        {
+            int destX = (int)(pos.x - texture->width * 0.5f);
+
+            for(int x = 0; x < texture->width; ++x)
+            {
+                if(destX >= 0 && destX < sw->width)
+                {
+                    u32 srcPixel = texture->pixels[y * texture->width + x];
+
+                    if(srcPixel & 0xFF000000)
+                    {
+                        sw->pixels[destY * sw->width + destX] = srcPixel;
+                    }
+                }
+
+                ++destX;
+            }
+        }
+
+        ++destY;
     }
 }
 
@@ -113,6 +148,7 @@ void *SoftwareRendererInit(Arena *arena, RendererAPI *api, void *platform, int w
 
     api->Clear = Clear;
     api->FillRect = FillRect;
+    api->DrawTexture = DrawTexture;
 
     api->Present = Present;
 

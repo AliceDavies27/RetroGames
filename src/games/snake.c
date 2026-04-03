@@ -22,6 +22,12 @@ typedef enum
     NUM_SEGMENT_TYPES
 } SegmentType;
 
+typedef struct
+{
+    Vec2i pos;
+    SegmentType type;
+} SnakeSegment;
+
 struct GameState
 {
     Arena *arena;
@@ -33,7 +39,7 @@ struct GameState
     int maxSegments;
     int headIndex, tailIndex;
 
-    Vec2i *snakeSegments;
+    SnakeSegment *snakeSegments;
     bool *gridOccupancy;
 
     Direction lastMove;
@@ -49,7 +55,12 @@ struct GameState
     bool gameOver;
 };
 
-static void DrawGridObj(Renderer *renderer, Vec2 gridCellSize, Vec2i pos, Color color)
+inline Vec2 WorldPosToPixelPos(Vec2i pos, Vec2 gridCellSize)
+{
+    return (Vec2){ (0.5f + pos.x) * gridCellSize.x, (0.5f + pos.y) * gridCellSize.y };
+}
+
+static void DrawGridObj(Renderer *renderer, Vec2i pos, Vec2 gridCellSize, Color color)
 {
     Vec2 drawPos = {
         (0.5f + pos.x) * gridCellSize.x,
@@ -97,13 +108,16 @@ GameState *SnakeInit(Arena *arena, Renderer *renderer)
     gameState->gridOccupancy = ArenaPushArrayZero(arena, bool, gameState->maxSegments);
 
     Vec2i pos = { gameState->gridCount / 2, gameState->gridCount / 2 };
-    gameState->snakeSegments[0] = pos;
+    gameState->snakeSegments[0].pos = pos;
+    gameState->snakeSegments[0].type = SEGMENT_HORZ;
     gameState->gridOccupancy[pos.y * gameState->gridCount + pos.x] = true;
     pos.x += 1;
-    gameState->snakeSegments[1] = pos;
+    gameState->snakeSegments[1].pos = pos;
+    gameState->snakeSegments[1].type = SEGMENT_HORZ;
     gameState->gridOccupancy[pos.y * gameState->gridCount + pos.x] = true;
     pos.x += 1;
-    gameState->snakeSegments[2] = pos;
+    gameState->snakeSegments[2].pos = pos;
+    gameState->snakeSegments[2].type = SEGMENT_HORZ;
     gameState->gridOccupancy[pos.y * gameState->gridCount + pos.x] = true;
 
     gameState->tailIndex = 0;
@@ -116,12 +130,12 @@ GameState *SnakeInit(Arena *arena, Renderer *renderer)
 
     gameState->updateFrequency = 0.2f;
 
-    gameState->snakeTextures[SEGMENT_HORZ] = RendererCreateTexture(renderer, "snake_tex_horz.png");
-    gameState->snakeTextures[SEGMENT_VERT] = RendererCreateTexture(renderer, "snake_tex_vert.png");
-    gameState->snakeTextures[SEGMENT_LEFT_UP] = RendererCreateTexture(renderer, "snake_tex_left_up.png");
-    gameState->snakeTextures[SEGMENT_LEFT_DOWN] = RendererCreateTexture(renderer, "snake_tex_left_down.png");
-    gameState->snakeTextures[SEGMENT_RIGHT_UP] = RendererCreateTexture(renderer, "snake_tex_right_up.png");
-    gameState->snakeTextures[SEGMENT_RIGHT_DOWN] = RendererCreateTexture(renderer, "snake_tex_right_down.png");
+    gameState->snakeTextures[SEGMENT_HORZ] = RendererCreateTexture(renderer, "res/snake_tex_horz.png");
+    gameState->snakeTextures[SEGMENT_VERT] = RendererCreateTexture(renderer, "res/snake_tex_vert.png");
+    gameState->snakeTextures[SEGMENT_LEFT_UP] = RendererCreateTexture(renderer, "res/snake_tex_left_up.png");
+    gameState->snakeTextures[SEGMENT_LEFT_DOWN] = RendererCreateTexture(renderer, "res/snake_tex_left_down.png");
+    gameState->snakeTextures[SEGMENT_RIGHT_UP] = RendererCreateTexture(renderer, "res/snake_tex_right_up.png");
+    gameState->snakeTextures[SEGMENT_RIGHT_DOWN] = RendererCreateTexture(renderer, "res/snake_tex_right_down.png");
 
     return gameState;
 }
@@ -165,16 +179,43 @@ void SnakeUpdate(GameState *gameState, Renderer *renderer, f32 deltaTime)
 
         if(!gameState->gameOver)
         {
-            Vec2i newHeadPos = gameState->snakeSegments[gameState->headIndex % gameState->maxSegments];
+            SnakeSegment *oldHead = &gameState->snakeSegments[gameState->headIndex % gameState->maxSegments];
+            SnakeSegment newHead = *oldHead;
 
-            if(gameState->nextMove == DIR_UP) newHeadPos.y--;
-            else if(gameState->nextMove == DIR_DOWN) newHeadPos.y++;
-            else if(gameState->nextMove == DIR_LEFT) newHeadPos.x--;
-            else if(gameState->nextMove == DIR_RIGHT) newHeadPos.x++;
+            if(gameState->nextMove == DIR_UP)
+            {
+                newHead.pos.y--;
+                newHead.type = SEGMENT_VERT;
 
-            bool collidedWithEdge = (newHeadPos.x < 0 || newHeadPos.y < 0 ||
-                newHeadPos.x >= gameState->gridCount || newHeadPos.y >= gameState->gridCount);
-            bool collidedWithSelf = (gameState->gridOccupancy[newHeadPos.y * gameState->gridCount + newHeadPos.x] == true);
+                if(gameState->lastMove == DIR_RIGHT) oldHead->type = SEGMENT_LEFT_UP;
+                else if(gameState->lastMove == DIR_LEFT) oldHead->type = SEGMENT_RIGHT_UP;
+            }
+            else if(gameState->nextMove == DIR_DOWN)
+            {
+                newHead.pos.y++;
+                newHead.type = SEGMENT_VERT;
+
+                if(gameState->lastMove == DIR_RIGHT) oldHead->type = SEGMENT_LEFT_DOWN;
+                else if(gameState->lastMove == DIR_LEFT) oldHead->type = SEGMENT_RIGHT_DOWN;
+            }
+            else if(gameState->nextMove == DIR_LEFT)
+            {
+                newHead.pos.x--;
+                newHead.type = SEGMENT_HORZ;
+                if(gameState->lastMove == DIR_UP) oldHead->type = SEGMENT_LEFT_DOWN;
+                else if(gameState->lastMove == DIR_DOWN) oldHead->type = SEGMENT_LEFT_UP;
+            }
+            else if(gameState->nextMove == DIR_RIGHT)
+            {
+                newHead.pos.x++;
+                newHead.type = SEGMENT_HORZ;
+                if(gameState->lastMove == DIR_UP) oldHead->type = SEGMENT_RIGHT_DOWN;
+                else if(gameState->lastMove == DIR_DOWN) oldHead->type = SEGMENT_RIGHT_UP;
+            }
+
+            bool collidedWithEdge = (newHead.pos.x < 0 || newHead.pos.y < 0 ||
+                newHead.pos.x >= gameState->gridCount || newHead.pos.y >= gameState->gridCount);
+            bool collidedWithSelf = (gameState->gridOccupancy[newHead.pos.y * gameState->gridCount + newHead.pos.x] == true);
 
             if(collidedWithEdge || collidedWithSelf)
             {
@@ -182,20 +223,20 @@ void SnakeUpdate(GameState *gameState, Renderer *renderer, f32 deltaTime)
             }
             else
             {
-                if(V2iEqual(newHeadPos, gameState->fruitPos))
+                if(V2iEqual(newHead.pos, gameState->fruitPos))
                 {
                     gameState->fruitPos = GenerateFruit(gameState->gridOccupancy, gameState->gridCount);
                 }
                 else
                 {
-                    Vec2i oldTailPos = gameState->snakeSegments[gameState->tailIndex % gameState->maxSegments];
+                    Vec2i oldTailPos = gameState->snakeSegments[gameState->tailIndex % gameState->maxSegments].pos;
                     gameState->gridOccupancy[oldTailPos.y * gameState->gridCount + oldTailPos.x] = false;
                     gameState->tailIndex++;
                 }
 
                 gameState->headIndex++;
-                gameState->snakeSegments[gameState->headIndex % gameState->maxSegments] = newHeadPos;
-                gameState->gridOccupancy[newHeadPos.y * gameState->gridCount + newHeadPos.x] = true;
+                gameState->snakeSegments[gameState->headIndex % gameState->maxSegments] = newHead;
+                gameState->gridOccupancy[newHead.pos.y * gameState->gridCount + newHead.pos.x] = true;
 
                 gameState->lastMove = gameState->nextMove;
             }
@@ -204,11 +245,15 @@ void SnakeUpdate(GameState *gameState, Renderer *renderer, f32 deltaTime)
 
     RendererSetSize(renderer, gameState->drawRegion);
     RendererFillRect(renderer, V2DivScalar(gameState->drawRegion, 2), gameState->drawRegion, COLOR_BLACK);
-    DrawGridObj(renderer, gameState->gridCellSize, gameState->fruitPos, COLOR_RED);
+    DrawGridObj(renderer, gameState->fruitPos, gameState->gridCellSize, COLOR_RED);
 
     for(int i = gameState->tailIndex; i <= gameState->headIndex; ++i)
     {
         int segmentIndex = i % gameState->maxSegments;
-        DrawGridObj(renderer, gameState->gridCellSize, gameState->snakeSegments[segmentIndex], COLOR_WHITE);
+
+        SegmentType type = gameState->snakeSegments[segmentIndex].type;
+        Vec2 pos = WorldPosToPixelPos(gameState->snakeSegments[segmentIndex].pos, gameState->gridCellSize);
+
+        RendererDrawTexture(renderer, gameState->snakeTextures[type], pos);
     }
 }

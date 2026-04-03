@@ -15,5 +15,6 @@ void RendererStartFrame(Renderer *renderer);
 void RendererSetSize(Renderer *renderer, Vec2 size);
 void RendererClear(Renderer *renderer, Color color);
 void RendererFillRect(Renderer *renderer, Vec2 pos, Vec2 size, Color color);
+void RendererDrawTexture(Renderer *renderer, TexHandle texHandle, Vec2 pos);
 
 void RendererEndFrame(Renderer *renderer);

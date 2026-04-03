@@ -99,7 +99,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     win32.deviceContext = GetDC(win32.window);
 
     Arena rendererArena = { 0 };
-    rendererArena.size = Megabytes(4);
+    rendererArena.size = Megabytes(64);
     rendererArena.memory = VirtualAlloc(0, rendererArena.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
     Renderer *renderer = RendererInit(&rendererArena, &win32, clientWidth, clientHeight);

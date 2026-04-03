@@ -40,6 +40,7 @@ typedef enum
 {
     COMMAND_CLEAR,
     COMMAND_FILL_RECT,
+    COMMAND_DRAW_TEXTURE
 } CommandType;
 
 typedef struct
@@ -59,6 +60,12 @@ typedef struct
     Vec2 size;
     Color color;
 } FillRectCommand;
+
+typedef struct
+{
+    TexHandle texHandle;
+    Vec2 pos;
+} DrawTextureCommand;
 
 Renderer *RendererInit(Arena *arena, void *platform, int width, int height)
 {
@@ -136,6 +143,14 @@ void RendererFillRect(Renderer *renderer, Vec2 pos, Vec2 size, Color color)
     fillRect->color = color;
 }
 
+void RendererDrawTexture(Renderer *renderer, TexHandle texHandle, Vec2 pos)
+{
+    DrawTextureCommand *drawTex = CommandBufferPush(&renderer->cmdBuf, COMMAND_DRAW_TEXTURE, sizeof(DrawTextureCommand));
+
+    drawTex->texHandle = texHandle;
+    drawTex->pos = V2AddV2(renderer->transform.offset, V2MulScalar(pos, renderer->transform.scale));
+}
+
 void RendererClear(Renderer *renderer, Color color)
 {
     ClearCommand *clear = CommandBufferPush(&renderer->cmdBuf, COMMAND_CLEAR, sizeof(ClearCommand));
@@ -165,6 +180,12 @@ void RendererEndFrame(Renderer *renderer)
             {
                 FillRectCommand *fillRect = data;
                 renderer->api.FillRect(renderer->backend, fillRect->pos, fillRect->size, fillRect->color);
+            } break;
+
+            case COMMAND_DRAW_TEXTURE:
+            {
+                DrawTextureCommand *drawTex = data;
+                renderer->api.DrawTexture(renderer->backend, drawTex->texHandle, drawTex->pos);
             } break;
 
             default:
